@@ -1,9 +1,15 @@
 package com.github.leroyguillaume.keycloak.bcrypt;
 
 import at.favre.lib.crypto.bcrypt.BCrypt;
+
+import org.bouncycastle.crypto.RuntimeCryptoException;
 import org.keycloak.credential.hash.PasswordHashProvider;
 import org.keycloak.models.PasswordPolicy;
 import org.keycloak.models.credential.PasswordCredentialModel;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+
+import javax.management.RuntimeErrorException;
 
 /**
  * @author <a href="mailto:pro.guillaume.leroy@gmail.com">Guillaume Leroy</a>
@@ -44,7 +50,15 @@ public class BCryptPasswordHashProvider implements PasswordHashProvider {
         } else {
             cost = iterations;
         }
-        return BCrypt.with(BCrypt.Version.VERSION_2Y).hashToString(cost, rawPassword.toCharArray());
+
+        try{
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] sha256Password = digest.digest(rawPassword.getBytes(StandardCharsets.UTF_8));
+            String encodedPassword = new String(sha256Password, StandardCharsets.UTF_8).replace("-", "");
+            return BCrypt.with(BCrypt.Version.VERSION_2A).hashToString(cost, encodedPassword.toCharArray());
+        } catch (Exception ex) {
+            throw new RuntimeCryptoException(ex.toString());
+        }
     }
 
     @Override
@@ -55,7 +69,15 @@ public class BCryptPasswordHashProvider implements PasswordHashProvider {
     @Override
     public boolean verify(String rawPassword, PasswordCredentialModel credential) {
         final String hash = credential.getPasswordSecretData().getValue();
-        BCrypt.Result verifier = BCrypt.verifyer().verify(rawPassword.toCharArray(), hash.toCharArray());
-        return verifier.verified;
+
+        try{
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] sha256Password = digest.digest(rawPassword.getBytes(StandardCharsets.UTF_8));
+            String encodedPassword = new String(sha256Password, StandardCharsets.UTF_8).replace("-", "");
+            BCrypt.Result verifier = BCrypt.verifyer().verify(encodedPassword.toCharArray(), hash.toCharArray());
+            return verifier.verified;
+        } catch (Exception ex) {
+            throw new RuntimeCryptoException(ex.toString());
+        }
     }
 }

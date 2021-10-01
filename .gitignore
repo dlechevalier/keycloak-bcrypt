@@ -11,3 +11,6 @@ target
 
 # Docker
 docker/*.jar
+
+# vscode
+.vscode
